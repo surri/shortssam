@@ -61,3 +61,14 @@ describe("parseModelJson 줄바꿈 복원", () => {
     expect(q.explanation).toContain("\\neq")
   })
 })
+
+describe("parseModelJson \\u LaTeX 처리", () => {
+  it("\\underline 같은 u-시작 LaTeX 명령도 복구", () => {
+    const broken = '{"s":"$\\underline{x}$ 와 $\\upsilon$"}'
+    const q = parseModelJson<{ s: string }>(broken)
+    expect(q.s).toContain("\\underline{x}")
+  })
+  it("진짜 유니코드 이스케이프는 보존", () => {
+    expect(parseModelJson<{ s: string }>('{"s":"\\u0041"}')).toEqual({ s: "A" })
+  })
+})

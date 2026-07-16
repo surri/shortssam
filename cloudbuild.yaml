@@ -1,0 +1,8 @@
+# main 푸시 → Cloud Build 트리거 → Cloud Run 배포
+# (기존 서비스의 env는 유지되므로 여기서 다시 지정하지 않음)
+steps:
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args: ["run", "deploy", "shortssam", "--source", ".", "--region", "us-central1", "--quiet"]
+options:
+  logging: CLOUD_LOGGING_ONLY

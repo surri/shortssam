@@ -53,8 +53,8 @@ export function parseModelJson<T>(text: string): T {
   try {
     return JSON.parse(t)
   } catch {
-    // 유효한 " \\ / u 이스케이프만 남기고 나머지 역슬래시는 리터럴로 승격(\frac, \times, \pi …)
-    const repaired = t.replace(/\\(?!["\\/u])/g, "\\\\")
+    // 유효한 이스케이프(" \\ / uXXXX)만 남기고 나머지 역슬래시는 리터럴로 승격(\frac, \times, \pi, \underline …)
+    const repaired = t.replace(/\\(?!["\\/]|u[0-9a-fA-F]{4})/g, "\\\\")
     const obj = JSON.parse(repaired)
     // 승격 과정에서 리터럴 "\n"이 된 줄바꿈을 복원(단, \neq 같은 LaTeX 명령은 유지)
     return JSON.parse(JSON.stringify(obj).replace(/\\\\n(?![a-zA-Z])/g, "\\n"))
