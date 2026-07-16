@@ -72,3 +72,17 @@ describe("parseModelJson \\u LaTeX 처리", () => {
     expect(parseModelJson<{ s: string }>('{"s":"\\u0041"}')).toEqual({ s: "A" })
   })
 })
+
+describe("parseModelJson 이중 역슬래시 쌍 보존(3.5-flash 실측 케이스)", () => {
+  it("올바른 \\le 쌍은 유지하고 단일 \\pi만 승격", () => {
+    const broken = '{"s":"$a \\\\le 5$ 와 \\pi"}'
+    expect(parseModelJson<{ s: string }>(broken).s).toBe("$a \\le 5$ 와 \\pi")
+  })
+  it("cases 환경(\\\\ 줄바꿈 + \\le 혼재 + 단일 \\sum)도 복구", () => {
+    const broken = '{"s":"$\\\\begin{cases} a \\\\le 5 \\\\\\\\ b \\end{cases}$ \\sum"}'
+    const q = parseModelJson<{ s: string }>(broken)
+    expect(q.s).toContain("\\le 5")
+    expect(q.s).toContain("\\\\")
+    expect(q.s).toContain("\\sum")
+  })
+})
