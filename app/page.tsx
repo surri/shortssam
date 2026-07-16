@@ -12,6 +12,13 @@ import type { Quiz, Work } from "@/lib/types"
 
 type Phase = "upload" | "loading" | "player"
 
+/** STEP 보드에 표시할 페르소나별 태그라인 */
+const PERSONA_TAGS: Record<PersonaId, string> = {
+  star_teacher: "대치동 1등급 비법",
+  snu_mentor: "서울대 시험 해킹",
+  math_savior: "수학 구원 전략",
+}
+
 export default function ShortSsam() {
   const [phase, setPhase] = useState<Phase>("upload")
   const [image, setImage] = useState<string | null>(null)
@@ -22,7 +29,9 @@ export default function ShortSsam() {
   const [err, setErr] = useState("")
   const [persona, setPersona] = useState<PersonaId>(DEFAULT_PERSONA)
   const [voice, setVoice] = useState(PERSONAS[DEFAULT_PERSONA].voice)
-  const [theme, setTheme] = useState<ThemeId>("paper")
+  const [theme, setTheme] = useState<ThemeId>("blackboard")
+  const [speed, setSpeed] = useState(1)
+  const [speaking, setSpeaking] = useState(false)
   const [quiz, setQuiz] = useState<Quiz | null>(null)
   const [quizOpen, setQuizOpen] = useState(false)
   const [quizLoading, setQuizLoading] = useState(false)
@@ -36,6 +45,7 @@ export default function ShortSsam() {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const koVoice = useRef<SpeechSynthesisVoice | null>(null)
+  const speedRef = useRef(1)
 
   const loadGallery = useCallback(async () => {
     try {
@@ -97,6 +107,16 @@ export default function ShortSsam() {
   const stopPlayback = () => {
     if (audioRef.current) { audioRef.current.pause(); audioRef.current = null }
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null }
+    setSpeaking(false)
+  }
+
+  const changeSpeed = () => {
+    const arr = [1, 1.25, 1.5, 0.75]
+    const nx = arr[(arr.indexOf(speed) + 1) % arr.length]
+    setSpeed(nx)
+    speedRef.current = nx
+    if (audioRef.current) audioRef.current.playbackRate = nx
+    playChime(440, 0.08)
   }
 
   const speak = (text: string) => {
@@ -104,7 +124,10 @@ export default function ShortSsam() {
       if (!koVoice.current) koVoice.current = speechSynthesis.getVoices().find((v) => v.lang?.startsWith("ko")) || null
       const u = new SpeechSynthesisUtterance((text || "").replace(/\$/g, ""))
       u.lang = "ko-KR"
+      u.rate = Math.min(2, 1.05 * speedRef.current)
       if (koVoice.current) u.voice = koVoice.current
+      u.onstart = () => setSpeaking(true)
+      u.onend = () => setSpeaking(false)
       speechSynthesis.cancel()
       speechSynthesis.speak(u)
     } catch {}
@@ -113,21 +136,24 @@ export default function ShortSsam() {
   const playScene = useCallback((i: number) => {
     const { work: w, audios } = playbackRef.current
     if (!w) return
-    if (i >= w.scenes.length) { setSceneIdx(w.scenes.length); return }
+    if (i >= w.scenes.length) { setSceneIdx(w.scenes.length); setSpeaking(false); return }
     setSceneIdx(i)
     stopPlayback()
     playChime(329.63 + i * 40, 0.08)
     const sc = w.scenes[i]
     const next = () => playScene(i + 1)
+    const dur = Math.max(2, sc.seconds || 4) * 1000 / speedRef.current
     const src = audios[i]
     if (src) {
       const a = new Audio(src)
+      a.playbackRate = speedRef.current
       audioRef.current = a
-      a.onended = next
-      a.play().catch(() => { timerRef.current = setTimeout(next, Math.max(2, sc.seconds || 4) * 1000) })
+      a.onplay = () => setSpeaking(true)
+      a.onended = () => { setSpeaking(false); next() }
+      a.play().catch(() => { timerRef.current = setTimeout(next, dur) })
     } else {
       speak(sc.narration)
-      timerRef.current = setTimeout(next, Math.max(2, sc.seconds || 4) * 1000)
+      timerRef.current = setTimeout(next, dur)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -278,7 +304,12 @@ export default function ShortSsam() {
                 work={work} sceneIdx={sceneIdx}
                 theme={theme} onTheme={setTheme}
                 personaEmoji={PERSONAS[persona].emoji}
-                onReplay={() => playScene(0)} onQuiz={openQuiz} onNew={reset}
+                personaTag={PERSONA_TAGS[persona]}
+                speed={speed} speaking={speaking} onSpeed={changeSpeed}
+                onReplay={() => playScene(0)}
+                onPrev={() => playScene(Math.max(0, Math.min(sceneIdx, work.scenes.length - 1) - 1))}
+                onNext={() => playScene(Math.min(work.scenes.length - 1, Math.min(sceneIdx, work.scenes.length - 1) + 1))}
+                onQuiz={openQuiz} onNew={reset}
               />
             )}
             {quizOpen && (
