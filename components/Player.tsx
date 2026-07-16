@@ -1,37 +1,26 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { splitByAccents } from "@/lib/accent"
 import { renderMathHtml } from "@/lib/math"
 import { startBgm, stopBgm } from "@/lib/sound"
 import type { Work } from "@/lib/types"
 
-export const THEMES = [
-  { id: "paper", label: "시험지", color: "#e8e6de" },
-  { id: "blackboard", label: "칠판", color: "#1f5c40" },
-  { id: "cyber", label: "네온", color: "#ff4fa3" },
-  { id: "pastel", label: "파스텔", color: "#ffd9e8" },
-] as const
-
-export type ThemeId = (typeof THEMES)[number]["id"]
-
 /**
- * 해설 숏츠 플레이어.
- * - 상단: 스토리식 진행바 + 난이도 뱃지 · 단원 · TTS 이퀄라이저
- * - 중앙: 점선 STEP 보드(현재 수식 + 페르소나 태그라인, 마지막 스텝엔 정답 공개)
+ * 해설 숏츠 플레이어(칠판 테마 고정).
+ * - 상단: 진행바 + 원본 문제 미니(클릭 시 프리뷰) + 난이도/단원 + TTS 이퀄라이저
+ * - 중앙: STEP 보드 — 이전 스텝들을 함께 쌓아 흐름을 보여주고 현재 스텝을 강조
  * - 하단: accentWords 컬러 강조 자막 + 재생/이동 컨트롤
- * - 우측 레일: 쌤 아바타 · 배속 · Lofi BGM · 비주얼 테마 전환
+ * - 우측 레일: 쌤 아바타 · 배속 · Lofi BGM
  */
 export function Player({
-  work, sceneIdx, theme, personaEmoji, personaTag, speed, speaking,
-  onTheme, onReplay, onPrev, onNext, onSpeed, onQuiz, onNew,
+  work, sceneIdx, personaEmoji, personaTag, speed, speaking,
+  onReplay, onPrev, onNext, onSpeed, onQuiz, onNew,
 }: {
   work: Work
   sceneIdx: number
-  theme: ThemeId
   personaEmoji: string
   personaTag: string
   speed: number
   speaking: boolean
-  onTheme: (t: ThemeId) => void
   onReplay: () => void
   onPrev: () => void
   onNext: () => void
@@ -40,6 +29,9 @@ export function Player({
   onNew: () => void
 }) {
   const [bgm, setBgm] = useState(false)
+  const [preview, setPreview] = useState(false)
+  const nowRef = useRef<HTMLDivElement>(null)
+
   useEffect(() => {
     if (bgm) startBgm()
     else stopBgm()
@@ -51,9 +43,15 @@ export function Player({
   const scene = work.scenes[cur]
   const isLast = cur === n - 1
   const caption = splitByAccents((scene?.narration || "").replace(/\$/g, ""), scene?.accentWords)
+  const hasProblem = Boolean(work.thumb || work.problem)
+
+  // 스텝이 바뀔 때 현재 줄이 항상 보이도록 스크롤
+  useEffect(() => {
+    nowRef.current?.scrollIntoView({ block: "nearest" })
+  }, [cur])
 
   return (
-    <div className="player" data-theme={theme}>
+    <div className="player" data-theme="blackboard">
       <div className="pl-scan" />
 
       <div className="pl-top">
@@ -67,6 +65,14 @@ export function Player({
           ))}
         </div>
         <div className="pl-head">
+          {hasProblem && (
+            <button type="button" className="prob-mini" onClick={() => setPreview(true)} title="원본 문제 보기">
+              {work.thumb
+                ? (/* eslint-disable-next-line @next/next/no-img-element */ <img src={work.thumb} alt="원본 문제" />)
+                : <span className="prob-mini-ico">📄</span>}
+              <span>문제</span>
+            </button>
+          )}
           {work.category && <span className="pl-badge">{work.category}</span>}
           {work.subtopic && <span className="pl-sub">{work.subtopic}</span>}
           {speaking && (
@@ -78,9 +84,21 @@ export function Player({
       </div>
 
       <div className="pl-stage">
-        <div className="step-board" key={cur}>
+        <div className="step-board">
           <div className="step-label">STEP {cur + 1} OF {n}</div>
-          <div className="step-formula" dangerouslySetInnerHTML={{ __html: renderMathHtml(scene?.onscreen || "") }} />
+          <div className="step-stack">
+            {work.scenes.slice(0, cur + 1).map((s, i) => {
+              const isNow = i === cur
+              return (
+                <div
+                  key={i}
+                  ref={isNow ? nowRef : undefined}
+                  className={"step-line" + (isNow ? " now" : " past")}
+                  dangerouslySetInnerHTML={{ __html: renderMathHtml(s.onscreen || "") }}
+                />
+              )
+            })}
+          </div>
           <div className="step-div" />
           <div className="step-tag">{personaTag}</div>
           {isLast && work.answer && (
@@ -100,19 +118,6 @@ export function Player({
         >
           🎵
         </button>
-        <div className="dots">
-          {THEMES.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              className={"dot" + (theme === t.id ? " on" : "")}
-              style={{ background: t.color }}
-              onClick={() => onTheme(t.id)}
-              title={"테마: " + t.label}
-              aria-label={"테마 " + t.label}
-            />
-          ))}
-        </div>
       </div>
 
       <div className="pl-bottom">
@@ -137,6 +142,21 @@ export function Player({
           <button type="button" onClick={onNew}>＋ 새 문제</button>
         </div>
       </div>
+
+      {preview && (
+        <div className="prob-preview" onClick={() => setPreview(false)}>
+          <div className="prob-preview-card" onClick={(e) => e.stopPropagation()}>
+            <div className="pp-head">
+              <span>원본 문제</span>
+              <button type="button" onClick={() => setPreview(false)} aria-label="닫기">✕</button>
+            </div>
+            {work.thumb && (/* eslint-disable-next-line @next/next/no-img-element */ <img className="pp-img" src={work.thumb} alt="원본 문제" />)}
+            {work.problem && (
+              <div className="pp-text" dangerouslySetInnerHTML={{ __html: renderMathHtml(work.problem) }} />
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

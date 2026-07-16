@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Gallery, type Filter } from "@/components/Gallery"
-import { Player, type ThemeId } from "@/components/Player"
+import { Player } from "@/components/Player"
 import { QuizPanel } from "@/components/Quiz"
 import { UploadPanel } from "@/components/UploadPanel"
 import { blobToDataUrl, readFile, resizeImage } from "@/lib/image"
@@ -29,7 +29,6 @@ export default function ShortSsam() {
   const [err, setErr] = useState("")
   const [persona, setPersona] = useState<PersonaId>(DEFAULT_PERSONA)
   const [voice, setVoice] = useState(PERSONAS[DEFAULT_PERSONA].voice)
-  const [theme, setTheme] = useState<ThemeId>("blackboard")
   const [speed, setSpeed] = useState(1)
   const [speaking, setSpeaking] = useState(false)
   const [quiz, setQuiz] = useState<Quiz | null>(null)
@@ -302,7 +301,6 @@ export default function ShortSsam() {
             {phase === "player" && work && (
               <Player
                 work={work} sceneIdx={sceneIdx}
-                theme={theme} onTheme={setTheme}
                 personaEmoji={PERSONAS[persona].emoji}
                 personaTag={PERSONA_TAGS[persona]}
                 speed={speed} speaking={speaking} onSpeed={changeSpeed}
