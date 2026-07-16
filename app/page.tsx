@@ -323,15 +323,7 @@ export default function ShortSsam() {
                 onReplay={() => playScene(0)}
                 onPrev={() => playScene(Math.max(0, Math.min(sceneIdx, work.scenes.length - 1) - 1))}
                 onNext={() => playScene(Math.min(work.scenes.length - 1, Math.min(sceneIdx, work.scenes.length - 1) + 1))}
-                onQuiz={openQuiz} onNew={reset}
-              />
-            )}
-            {quizOpen && (
-              <QuizPanel
-                key={quiz ? quiz.problem : "loading"}
-                quiz={quiz} loading={quizLoading} score={score}
-                onRetry={openQuiz} onClose={closeQuiz}
-                onResult={(correct) => { if (correct) setScore((s) => s + 10) }}
+                onNew={reset}
               />
             )}
           </div>

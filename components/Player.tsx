@@ -13,7 +13,7 @@ import type { Work } from "@/lib/types"
  */
 export function Player({
   work, sceneIdx, personaEmoji, personaTag, speed, speaking,
-  onReplay, onPrev, onNext, onSpeed, onQuiz, onNew,
+  onReplay, onPrev, onNext, onSpeed, onNew,
 }: {
   work: Work
   sceneIdx: number
@@ -25,7 +25,6 @@ export function Player({
   onPrev: () => void
   onNext: () => void
   onSpeed: () => void
-  onQuiz: () => void
   onNew: () => void
 }) {
   const [bgm, setBgm] = useState(false)
@@ -148,7 +147,6 @@ export function Player({
           </div>
         </div>
         <div className="controls">
-          <button type="button" onClick={onQuiz}>✏️ 유사문제</button>
           <button type="button" onClick={onNew}>＋ 새 문제</button>
         </div>
       </div>
