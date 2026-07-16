@@ -19,6 +19,6 @@ export async function POST(req: Request) {
     const wav = await getOrSynthesize(parsed.data.text, parsed.data.voice, parsed.data.style)
     return NextResponse.json({ audio: wav.toString("base64") })
   } catch (e) {
-    return NextResponse.json({ error: String((e as Error).message ?? e) })
+    return NextResponse.json({ error: String((e as Error).message ?? e) }, { status: 500 })
   }
 }

@@ -19,8 +19,14 @@ export function rateLimit(key: string, limit = 20, windowMs = 60_000): boolean {
   return true
 }
 
-/** 프록시(예: Cloud Run) 뒤의 클라이언트 IP 추출. */
+/**
+ * 프록시(예: Cloud Run) 뒤의 클라이언트 IP 추출.
+ * XFF는 클라이언트가 임의 값을 앞에 붙일 수 있으므로(레이트리밋 우회),
+ * 플랫폼(GFE)이 마지막에 덧붙인 우측 항목만 신뢰한다.
+ */
 export function clientIp(req: Request): string {
   const h = req.headers
-  return (h.get("x-forwarded-for")?.split(",")[0] || h.get("x-real-ip") || "local").trim()
+  const xff = h.get("x-forwarded-for")
+  if (xff) return (xff.split(",").at(-1) || "").trim() || "local"
+  return (h.get("x-real-ip") || "local").trim()
 }

@@ -5,10 +5,11 @@
 
 ```bash
 export PROJECT=<gcp-project-id>
-export REGION=us-central1
+export REGION=asia-northeast3   # Cloud Run·버킷 리전(서울). Vertex 모델 리전은 us-central1 별도
 gcloud config set project "$PROJECT"
 gcloud services enable aiplatform.googleapis.com firestore.googleapis.com run.googleapis.com storage.googleapis.com
 ```
+> `main` 푸시 시 `cloudbuild.yaml` 트리거가 **자동 배포**한다(기존 서비스 env 유지). 아래 수동 절차는 최초 1회 프로비저닝용.
 
 ## 1. Firestore Native + 벡터 인덱스
 ```bash
@@ -27,17 +28,17 @@ gcloud storage buckets create "gs://$PROJECT-tts-cache" \
 > ⚠️ `AUDIO_BUCKET` 미설정 시 오디오 캐시는 인스턴스 파일시스템(휘발성) — 재시작마다 재합성 비용이 든다. 재청취 비용 절감을 원하면 반드시 설정.
 > (선택) 비용 관리: `gcloud storage buckets update "gs://$PROJECT-tts-cache" --lifecycle-file=<(echo '{"rule":[{"action":{"type":"Delete"},"condition":{"age":90}}]}')`
 
-## 2. Cloud Run 배포 (web/ 의 Dockerfile 사용)
+## 2. Cloud Run 배포 (Dockerfile 사용)
 ```bash
-cd web
-gcloud run deploy math-shorts \
+gcloud run deploy shortssam \
   --source . --region "$REGION" --allow-unauthenticated \
-  --set-env-vars=GOOGLE_GENAI_USE_VERTEXAI=true,GOOGLE_CLOUD_PROJECT=$PROJECT,GOOGLE_CLOUD_LOCATION=$REGION,STORAGE=firestore,AUDIO_BUCKET=$PROJECT-tts-cache
+  --set-env-vars=GOOGLE_GENAI_USE_VERTEXAI=true,GOOGLE_CLOUD_PROJECT=$PROJECT,GOOGLE_CLOUD_LOCATION=us-central1,STORAGE=firestore,AUDIO_BUCKET=$PROJECT-tts-cache
 ```
+> ⚠️ `--set-env-vars`는 기존 env를 **전체 대체**한다. 배포된 서비스에 변수 하나만 추가할 땐 반드시 `--update-env-vars`를 쓸 것.
 - `output: 'standalone'` + `Dockerfile`로 최소 이미지 빌드. HTTPS 자동.
 - Gemini/Firestore는 **Cloud Run 서비스계정**으로 인증(키리스). 권한 부족 시:
 ```bash
-SA=$(gcloud run services describe math-shorts --region "$REGION" --format='value(spec.template.spec.serviceAccountName)')
+SA=$(gcloud run services describe shortssam --region "$REGION" --format='value(spec.template.spec.serviceAccountName)')
 gcloud projects add-iam-policy-binding "$PROJECT" --member="serviceAccount:$SA" --role="roles/aiplatform.user"
 gcloud projects add-iam-policy-binding "$PROJECT" --member="serviceAccount:$SA" --role="roles/datastore.user"
 gcloud storage buckets add-iam-policy-binding "gs://$PROJECT-tts-cache" \
@@ -47,7 +48,7 @@ gcloud storage buckets add-iam-policy-binding "gs://$PROJECT-tts-cache" \
 
 ## 3. 스모크 테스트
 ```bash
-URL=$(gcloud run services describe math-shorts --region "$REGION" --format='value(status.url)')
+URL=$(gcloud run services describe shortssam --region "$REGION" --format='value(status.url)')
 open "$URL"   # 문제 업로드 → 숏츠 생성 → 갤러리 저장·유사검색 확인
 ```
 

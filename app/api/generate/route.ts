@@ -11,6 +11,8 @@ export const runtime = "nodejs"
 export const maxDuration = 120
 
 function toWork(data: GenResult, thumb: string, persona?: string, voice?: string): Work {
+  // persona/voice는 항상 구체값으로 — 배치 오디오 라우트의 캐시 키 결정성 + Firestore의 undefined 필드 거부 회피
+  const pid = isPersonaId(persona) ? persona : DEFAULT_PERSONA
   return {
     id: crypto.randomUUID().slice(0, 12),
     created_at: new Date().toISOString(),
@@ -21,9 +23,8 @@ function toWork(data: GenResult, thumb: string, persona?: string, voice?: string
     scenes: data.scenes || [],
     total_seconds: data.total_seconds || 0,
     thumb,
-    persona,
-    // 항상 구체값으로 — 배치 오디오 라우트의 캐시 키 결정성 + Firestore의 undefined 필드 거부 회피
-    voice: voice ?? PERSONAS[isPersonaId(persona) ? persona : DEFAULT_PERSONA].voice,
+    persona: pid,
+    voice: voice ?? PERSONAS[pid].voice,
   }
 }
 
