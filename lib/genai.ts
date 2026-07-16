@@ -83,10 +83,12 @@ const PROMPT = String.raw`이 이미지는 수학 문제입니다.
 (1) 문제를 정확히 읽고 (2) 단계적으로 풀고 (3) 유튜브 숏츠용 짧은 설명 대본을 만들고 (4) 한국 고교 수학 커리큘럼으로 분류하세요.
 
 형식 규칙(매우 중요 — 두 필드 형식이 다름):
-- narration: 소리 내어 읽을 순수 한국어 구어체 한 문장. LaTeX·수식기호 절대 금지, 수식은 말로 풀어쓰기.
+- narration: 소리 내어 읽을 순수 한국어 구어체 한 문장(TTS 낭독용). LaTeX·수식기호 절대 금지, 수식은 말로 풀어쓰기.
   예) "3^{1/2}"(X) -> "3의 2분의 1제곱"(O), "x^2"(X) -> "엑스 제곱"(O), "sqrt(2)"(X) -> "루트 2"(O).
 - narration 말투: {tone}. 이 말투를 모든 장면에 일관되게 입히세요.
-- accentWords: 해당 장면 narration에 실제로 등장하는 표현 중 자막에서 컬러로 강조할 짧은 단어/구 1~3개.
+- caption: 화면에 뜨는 자막 한 줄(표시용). narration과 같은 뜻이되, 수식·분수·기호는 $로 감싼 LaTeX로 표기해 가독성을 높이세요(구어체 수 표현 금지).
+  예) narration "3의 2분의 1제곱은" -> caption "$3^{1/2}$ 은", narration "엑스는 오분의 일" -> caption "엑스는 $\dfrac{1}{5}$".
+- accentWords: 해당 장면 caption의 '텍스트 부분'(수식 $...$ 바깥)에 실제로 등장하는 짧은 단어/구 1~3개(자막에서 컬러 강조).
 - onscreen: 이 단계의 풀이를 "한 줄"로. 장면들의 onscreen을 위에서 아래로 쌓으면 하나의 완결된 풀이 과정이 되도록, 앞 줄에 이어서 다음 줄을 적으세요(공책에 풀이를 한 줄씩 써 내려가듯). 실제 수식 줄 위주(키워드 나열 금지). LaTeX는 $로 감싸기. 예) "$x^2 - 5x + 6 = 0$" -> "$(x-2)(x-3) = 0$" -> "$x = 2,\ x = 3$". 첫 장면 onscreen은 문제 식 그대로, 마지막 장면은 정답 줄. 한 줄만, 영어 설명어 금지.
 - category: 아래 목록의 값 중 하나로만.
 - subtopic: 해당 category의 세부 단원.
@@ -95,7 +97,7 @@ const PROMPT = String.raw`이 이미지는 수학 문제입니다.
 {tax}
 
 4~6개 장면, 전체 25초 이내(도입->풀이 단계->정답). JSON만 출력:
-{"problem":"...","answer":"...","category":"...","subtopic":"...","scenes":[{"narration":"...","onscreen":"...","accentWords":["강조어"],"seconds":4}],"total_seconds":20}`
+{"problem":"...","answer":"...","category":"...","subtopic":"...","scenes":[{"narration":"...","caption":"...","onscreen":"...","accentWords":["강조어"],"seconds":4}],"total_seconds":20}`
 
 export type GenResult = {
   problem: string

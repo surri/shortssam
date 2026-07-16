@@ -21,7 +21,9 @@ describe("데모 목데이터", () => {
         expect(s.narration.length).toBeGreaterThan(0)
         expect(s.onscreen).toMatch(/\$.+\$/)
         expect(s.seconds).toBeGreaterThanOrEqual(2)
-        s.accentWords?.forEach((a) => expect(s.narration).toContain(a))
+        // 강조어는 화면에 표시되는 자막(caption 우선, 없으면 narration)에 등장해야 강조가 걸린다
+        const display = s.caption ?? s.narration
+        s.accentWords?.forEach((a) => expect(display).toContain(a))
       })
     })
   })

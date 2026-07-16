@@ -2,8 +2,10 @@ export type Scene = {
   narration: string
   onscreen: string
   seconds: number
-  /** 자막에서 컬러 강조할 단어(나레이션에 실제 등장하는 1~3개) */
+  /** 자막에서 컬러 강조할 단어(caption 텍스트에 실제 등장하는 1~3개) */
   accentWords?: string[]
+  /** 화면 자막(표시 전용). 수식은 $LaTeX$로 표기해 KaTeX 렌더. 없으면 narration으로 폴백 */
+  caption?: string
 }
 
 export type Work = {
