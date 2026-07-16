@@ -6,6 +6,9 @@
 
 Google Cloud Study Jam Hackathon 2026 출품작 — [AI Studio 앱](https://ai.studio/apps/31b34c65-7c93-4bc3-8daa-8a055a400ba4)으로 시작해 Antigravity 프로세스로 개발했습니다.
 
+- **트랙: Social Good** — 사진 한 장이면 누구나, 어디서나 1분 과외를 받는 교육 접근성 도구
+- **라이브 데모**: https://shortssam-506743449944.asia-northeast3.run.app
+
 ## 실행
 
 ```bash
@@ -18,7 +21,7 @@ GEMINI_API_KEY=... npm run dev   # http://localhost:3000
 ## 스택
 
 - **Next.js 16 + React 19** 풀스택 (API Routes)
-- **@google/genai** — Gemini 멀티모달 풀이 생성, TTS 나레이션, 임베딩(RAG)
+- **@google/genai** — Gemini 멀티모달 풀이 생성(gemini-3.5-flash↔2.5-flash 환경별 폴백 체인, responseSchema constrained decoding), TTS 나레이션(gemini-3.1-flash-tts-preview), 임베딩 RAG(gemini-embedding-001)
 - **KaTeX** — 수식 렌더링
 - 저장소: 로컬 JSON ↔ Firestore (`STORAGE` env 전환)
 - 배포: `output: 'standalone'` + Dockerfile → **Cloud Run** (`docs/DEPLOY-GCP.md`)
