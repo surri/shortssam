@@ -33,3 +33,26 @@ export function renderMathHtml(s: string): string {
     .join("")
   return DOMPurify.sanitize(html)
 }
+
+/**
+ * 인라인용 렌더 — `$...$` 구간을 KaTeX(inline, displayMode:false)로, 나머지는 이스케이프.
+ * 자막(선생님 스크립트)·갤러리 썸네일 제목(정답)처럼 한 줄 안에 텍스트+수식이 섞일 때 사용.
+ */
+export function renderMathInline(s: string): string {
+  const line = s || ""
+  let out = ""
+  let last = 0
+  const re = /\$([^$]+)\$/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(line))) {
+    out += esc(line.slice(last, m.index))
+    try {
+      out += katex.renderToString(m[1], { displayMode: false, throwOnError: false })
+    } catch {
+      out += esc(m[0])
+    }
+    last = re.lastIndex
+  }
+  out += esc(line.slice(last))
+  return DOMPurify.sanitize(out)
+}

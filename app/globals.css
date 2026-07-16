@@ -157,6 +157,8 @@ select { flex: 1; }
 .pl-bottom { position: relative; z-index: 2; display: flex; flex-direction: column; gap: 10px; }
 .caption { padding: 9px 12px; border-radius: 12px; font-size: 14px; line-height: 1.45; font-weight: 600; text-align: center; color: var(--pl-panel-ink); background: var(--pl-panel-bg); border: 1px solid var(--pl-panel-border); min-height: 30px; }
 .caption .accent { color: var(--pl-accent); font-weight: 800; display: inline-block; animation: accent-pulse 1.8s ease-in-out infinite; }
+.caption .cap-math { display: inline-block; vertical-align: middle; }
+.caption .cap-math .katex { font-size: 1.02em; color: var(--pl-panel-ink); }
 @keyframes accent-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
 
 .pl-ctrls { display: flex; align-items: center; justify-content: space-between; padding-top: 8px; border-top: 1px solid var(--pl-panel-border); }
@@ -222,4 +224,5 @@ button.card { display: block; width: 100%; text-align: left; font: inherit; colo
 .card .meta { padding: 7px 8px; }
 .card .c { font-size: 11px; color: #b39cff; font-weight: 700; }
 .card .a { font-size: 12px; color: #d8d8e8; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card .a .katex { font-size: .95em; color: inherit; }
 .empty { color: #6a6a82; font-size: 13px; padding: 20px 0; }

@@ -1,3 +1,4 @@
+import { renderMathInline } from "@/lib/math"
 import type { Work } from "@/lib/types"
 
 /** 갤러리 필터: 상위(과목 category) + 하위(단원 subtopic) 2단계. */
@@ -53,7 +54,7 @@ export function Gallery({
               {w.thumb ? <img src={w.thumb} alt="" /> : <div style={{ aspectRatio: "4/3" }} />}
               <div className="meta">
                 <div className="c">{w.category || "미분류"}{w.subtopic ? " · " + w.subtopic : ""}</div>
-                <div className="a">{(w.answer || "").replace(/\$/g, "")}</div>
+                <div className="a" dangerouslySetInnerHTML={{ __html: renderMathInline(w.answer || "") }} />
               </div>
             </button>
           ))

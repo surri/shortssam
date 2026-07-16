@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { splitByAccents } from "@/lib/accent"
-import { renderMathHtml } from "@/lib/math"
+import { renderMathHtml, renderMathInline } from "@/lib/math"
 import { startBgm, stopBgm } from "@/lib/sound"
 import type { Work } from "@/lib/types"
 
@@ -42,7 +42,8 @@ export function Player({
   const cur = Math.min(sceneIdx, n - 1)
   const scene = work.scenes[cur]
   const isLast = cur === n - 1
-  const caption = splitByAccents((scene?.narration || "").replace(/\$/g, ""), scene?.accentWords)
+  // 자막: caption(표시용, $LaTeX$ 포함) 우선, 없으면 narration으로 폴백
+  const capSource = scene?.caption ?? scene?.narration ?? ""
   const hasProblem = Boolean(work.thumb || work.problem)
 
   // 스텝이 바뀔 때 현재 줄이 항상 보이도록 스크롤
@@ -122,9 +123,18 @@ export function Player({
 
       <div className="pl-bottom">
         <div className="caption">
-          {caption.map((p, i) =>
-            p.accent ? <span key={i} className="accent">{p.text}</span> : <span key={i}>{p.text}</span>,
-          )}
+          {capSource
+            .split(/(\$[^$]+\$)/g)
+            .filter(Boolean)
+            .flatMap((part, i) =>
+              /^\$[^$]+\$$/.test(part)
+                ? [<span key={"m" + i} className="cap-math" dangerouslySetInnerHTML={{ __html: renderMathInline(part) }} />]
+                : splitByAccents(part, scene?.accentWords).map((p, j) =>
+                    p.accent
+                      ? <span key={"a" + i + "-" + j} className="accent">{p.text}</span>
+                      : <span key={"t" + i + "-" + j}>{p.text}</span>,
+                  ),
+            )}
         </div>
         <div className="pl-ctrls">
           <div className="ctrl-left">
