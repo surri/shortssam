@@ -5,7 +5,8 @@ import type { Quiz, Scene } from "./types"
 
 // gemini-3.5-flash(AI Studio 기본)를 선두에 — 미지원 환경이면 체인이 자동 폴백
 const GEN_CHAIN = ["gemini-3.5-flash", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"]
-const TTS_CHAIN = [process.env.TTS_MODEL || "gemini-2.5-flash-preview-tts", "gemini-2.5-pro-preview-tts"]
+// 신규 키에서 2.5 TTS는 무음 응답 → 3.1 우선, 빈 오디오도 폴백 처리(synthesize 참고)
+const TTS_CHAIN = [process.env.TTS_MODEL || "gemini-3.1-flash-tts-preview", "gemini-2.5-flash-preview-tts", "gemini-2.5-pro-preview-tts"]
 /** 기본 TTS 보이스·낭독 스타일 — 캐시 키 정규화(lib/audio)와 synthesize 기본값의 단일 소스 */
 export const DEFAULT_TTS_VOICE = "Kore"
 export const DEFAULT_TTS_STYLE = "밝고 친근한 톤으로"
@@ -50,15 +51,32 @@ export async function callModels<T>(fn: (model: string) => Promise<T>, models: s
   throw last
 }
 
-/** 모델 JSON 파싱 — LaTeX 역슬래시(\pi, \sqrt 등)가 JSON 이스케이프를 깨면 복구 후 재시도. (테스트를 위해 export) */
+/**
+ * 깨진 모델 JSON의 이스케이프 복구 — 문자열을 왼쪽부터 걸으며 이스케이프 "쌍"을 소비한다.
+ * 유효(\\ \" \/ \uXXXX)는 그대로 두고, 무효(\l, \p, \f …)만 리터럴 역슬래시로 승격.
+ * 정규식 치환은 \\le처럼 이미 올바른 쌍의 두 번째 역슬래시를 다시 이스케이프해 JSON을 깨뜨린다.
+ */
+function repairJsonEscapes(t: string): string {
+  let out = ""
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i]
+    if (c !== "\\") { out += c; continue }
+    const n = t[i + 1]
+    const validPair = n === "\\" || n === '"' || n === "/" ||
+      (n === "u" && /^[0-9a-fA-F]{4}$/.test(t.slice(i + 2, i + 6)))
+    if (validPair) { out += c + n; i++ }
+    else out += "\\\\"
+  }
+  return out
+}
+
+/** 모델 JSON 파싱 — LaTeX 역슬래시(\pi, \sqrt, \\le 등)가 JSON 이스케이프를 깨면 복구 후 재시도. (테스트를 위해 export) */
 export function parseModelJson<T>(text: string): T {
   const t = (text || "").trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "")
   try {
     return JSON.parse(t)
   } catch {
-    // 유효한 " \\ / u 이스케이프만 남기고 나머지 역슬래시는 리터럴로 승격(\frac, \times, \pi …)
-    const repaired = t.replace(/\\(?!["\\/u])/g, "\\\\")
-    const obj = JSON.parse(repaired)
+    const obj = JSON.parse(repairJsonEscapes(t))
     // 승격 과정에서 리터럴 "\n"이 된 줄바꿈을 복원(단, \neq 같은 LaTeX 명령은 유지)
     return JSON.parse(JSON.stringify(obj).replace(/\\\\n(?![a-zA-Z])/g, "\\n"))
   }
@@ -121,22 +139,21 @@ export function pcmToWav(pcm: Buffer, rate = 24000): Buffer {
   return Buffer.concat([h, pcm])
 }
 
-/** 텍스트 → WAV(Buffer) 나레이션. 지정 음성·낭독 스타일로 합성, 폴백 체인 사용. */
+/** 텍스트 → WAV(Buffer) 나레이션. 지정 음성·낭독 스타일로 합성. 빈 오디오 응답도 다음 모델로 폴백. */
 export async function synthesize(text: string, voice = DEFAULT_TTS_VOICE, style = DEFAULT_TTS_STYLE): Promise<Buffer> {
-  const res = await callModels(
-    (model) =>
-      ai().models.generateContent({
-        model,
-        contents: `다음 문장을 ${style} 읽어줘: ${text}`,
-        config: {
-          responseModalities: ["AUDIO"],
-          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } },
-        },
-      }),
-    TTS_CHAIN,
-  )
-  const b64 = res.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data
-  if (!b64) throw new Error("no audio in TTS response")
+  const b64 = await callModels(async (model) => {
+    const res = await ai().models.generateContent({
+      model,
+      contents: `다음 문장을 ${style} 읽어줘: ${text}`,
+      config: {
+        responseModalities: ["AUDIO"],
+        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } },
+      },
+    })
+    const data = res.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data
+    if (!data) throw new Error("no audio in TTS response")
+    return data
+  }, TTS_CHAIN)
   return pcmToWav(Buffer.from(b64, "base64"))
 }
 

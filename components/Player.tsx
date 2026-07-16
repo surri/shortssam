@@ -1,38 +1,37 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { splitByAccents } from "@/lib/accent"
 import { renderMathHtml } from "@/lib/math"
 import { startBgm, stopBgm } from "@/lib/sound"
 import type { Work } from "@/lib/types"
 
-export const THEMES = [
-  { id: "paper", label: "시험지", color: "#e8e6de" },
-  { id: "blackboard", label: "칠판", color: "#1f5c40" },
-  { id: "cyber", label: "네온", color: "#ff4fa3" },
-  { id: "pastel", label: "파스텔", color: "#ffd9e8" },
-] as const
-
-export type ThemeId = (typeof THEMES)[number]["id"]
-
 /**
- * 해설 숏츠 플레이어(누적 풀이 스타일).
- * - 상단: 스토리식 진행바(현재 스텝은 장면 길이에 맞춰 채워짐)
- * - 중앙: 원 문제 + 풀이 줄 누적, 현재 줄 강조
- * - 하단: accentWords 컬러 강조 자막
- * - 우측 레일: 쌤 아바타 · Lofi BGM 토글 · 비주얼 테마 전환
+ * 해설 숏츠 플레이어(칠판 테마 고정).
+ * - 상단: 진행바 + 원본 문제 미니(클릭 시 프리뷰) + 난이도/단원 + TTS 이퀄라이저
+ * - 중앙: STEP 보드 — 이전 스텝들을 함께 쌓아 흐름을 보여주고 현재 스텝을 강조
+ * - 하단: accentWords 컬러 강조 자막 + 재생/이동 컨트롤
+ * - 우측 레일: 쌤 아바타 · 배속 · Lofi BGM
  */
 export function Player({
-  work, sceneIdx, theme, personaEmoji, onTheme, onReplay, onQuiz, onNew,
+  work, sceneIdx, personaEmoji, personaTag, speed, speaking,
+  onReplay, onPrev, onNext, onSpeed, onQuiz, onNew,
 }: {
   work: Work
   sceneIdx: number
-  theme: ThemeId
   personaEmoji: string
-  onTheme: (t: ThemeId) => void
+  personaTag: string
+  speed: number
+  speaking: boolean
   onReplay: () => void
+  onPrev: () => void
+  onNext: () => void
+  onSpeed: () => void
   onQuiz: () => void
   onNew: () => void
 }) {
   const [bgm, setBgm] = useState(false)
+  const [preview, setPreview] = useState(false)
+  const nowRef = useRef<HTMLDivElement>(null)
+
   useEffect(() => {
     if (bgm) startBgm()
     else stopBgm()
@@ -41,77 +40,123 @@ export function Player({
 
   const n = work.scenes.length
   const cur = Math.min(sceneIdx, n - 1)
-  const visible = Math.min(sceneIdx + 1, n)
   const scene = work.scenes[cur]
+  const isLast = cur === n - 1
   const caption = splitByAccents((scene?.narration || "").replace(/\$/g, ""), scene?.accentWords)
+  const hasProblem = Boolean(work.thumb || work.problem)
+
+  // 스텝이 바뀔 때 현재 줄이 항상 보이도록 스크롤
+  useEffect(() => {
+    nowRef.current?.scrollIntoView({ block: "nearest" })
+  }, [cur])
 
   return (
-    <div className="player" data-theme={theme}>
-      <div className="progress">
-        {work.scenes.map((s, j) => (
-          <div key={j} className={"seg" + (j < sceneIdx ? " done" : "")}>
-            {j === sceneIdx && (
-              <div className="fill" style={{ animationDuration: Math.max(2, s.seconds || 4) + "s" }} />
-            )}
-          </div>
-        ))}
-      </div>
-      <div className="cat-tag">{work.category}{work.subtopic ? " · " + work.subtopic : ""}</div>
-      <div className="answer-tag" dangerouslySetInnerHTML={{ __html: renderMathHtml("정답 " + (work.answer || "")) }} />
+    <div className="player" data-theme="blackboard">
+      <div className="pl-scan" />
 
-      <div className="stage">
-        {work.thumb && (
-          <div className="prob-wrap">
-            <span className="prob-label">문제</span>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img className="prob-img" src={work.thumb} alt="원래 문제" />
-          </div>
-        )}
-        <div className="badge">STEP {cur + 1} / {n}</div>
-        <div className="worksheet">
-          {work.scenes.slice(0, visible).map((s, i) => (
-            <div
-              key={i}
-              className={"line" + (i === cur ? " current" : "")}
-              dangerouslySetInnerHTML={{ __html: renderMathHtml(s.onscreen || "") }}
-            />
+      <div className="pl-top">
+        <div className="progress">
+          {work.scenes.map((s, j) => (
+            <div key={j} className={"seg" + (j < sceneIdx ? " done" : "")}>
+              {j === sceneIdx && (
+                <div className="fill" style={{ animationDuration: Math.max(2, s.seconds || 4) / speed + "s" }} />
+              )}
+            </div>
           ))}
+        </div>
+        <div className="pl-head">
+          {hasProblem && (
+            <button type="button" className="prob-mini" onClick={() => setPreview(true)} title="원본 문제 보기">
+              {work.thumb
+                ? (/* eslint-disable-next-line @next/next/no-img-element */ <img src={work.thumb} alt="원본 문제" />)
+                : <span className="prob-mini-ico">📄</span>}
+              <span>문제</span>
+            </button>
+          )}
+          {work.category && <span className="pl-badge">{work.category}</span>}
+          {work.subtopic && <span className="pl-sub">{work.subtopic}</span>}
+          {speaking && (
+            <span className="eq" title="쌤 음성 해설 중">
+              <i /><i /><i /><i />
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="pl-stage">
+        <div className="step-board">
+          <div className="step-label">STEP {cur + 1} OF {n}</div>
+          <div className="step-stack">
+            {work.scenes.slice(0, cur + 1).map((s, i) => {
+              const isNow = i === cur
+              return (
+                <div
+                  key={i}
+                  ref={isNow ? nowRef : undefined}
+                  className={"step-line" + (isNow ? " now" : " past")}
+                  dangerouslySetInnerHTML={{ __html: renderMathHtml(s.onscreen || "") }}
+                />
+              )
+            })}
+          </div>
+          <div className="step-div" />
+          <div className="step-tag">{personaTag}</div>
+          {isLast && work.answer && (
+            <div className="step-answer" dangerouslySetInnerHTML={{ __html: renderMathHtml("정답 " + work.answer) }} />
+          )}
         </div>
       </div>
 
       <div className="rail">
         <div className="avatar" title="숏쌤">{personaEmoji}</div>
+        <button type="button" className="rail-btn" onClick={onSpeed} title="재생 속도">{speed}x</button>
         <button
           type="button"
-          className={"icon" + (bgm ? " on" : "")}
+          className={"rail-btn" + (bgm ? " on" : "")}
           onClick={() => setBgm((v) => !v)}
           title={bgm ? "Lofi BGM 끄기" : "Lofi BGM 켜기"}
         >
           🎵
         </button>
-        {THEMES.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            className={"dot" + (theme === t.id ? " on" : "")}
-            style={{ background: t.color }}
-            onClick={() => onTheme(t.id)}
-            title={"테마: " + t.label}
-            aria-label={"테마 " + t.label}
-          />
-        ))}
       </div>
 
-      <div className="caption">
-        {caption.map((p, i) =>
-          p.accent ? <span key={i} className="accent">{p.text}</span> : <span key={i}>{p.text}</span>,
-        )}
+      <div className="pl-bottom">
+        <div className="caption">
+          {caption.map((p, i) =>
+            p.accent ? <span key={i} className="accent">{p.text}</span> : <span key={i}>{p.text}</span>,
+          )}
+        </div>
+        <div className="pl-ctrls">
+          <div className="ctrl-left">
+            <button type="button" className="ctrl-play" onClick={onReplay} title="처음부터 재생">▶</button>
+            <span className="speed-chip">x{speed.toFixed(2)}</span>
+          </div>
+          <div className="ctrl-nav">
+            <button type="button" onClick={onPrev} disabled={cur === 0} aria-label="이전 스텝">‹</button>
+            <button type="button" onClick={onNext} disabled={cur === n - 1} aria-label="다음 스텝">›</button>
+            <button type="button" onClick={onReplay} aria-label="처음부터">↻</button>
+          </div>
+        </div>
+        <div className="controls">
+          <button type="button" onClick={onQuiz}>✏️ 유사문제</button>
+          <button type="button" onClick={onNew}>＋ 새 문제</button>
+        </div>
       </div>
-      <div className="controls">
-        <button type="button" onClick={onReplay}>↻ 다시</button>
-        <button type="button" onClick={onQuiz}>✏️ 유사문제</button>
-        <button type="button" onClick={onNew}>＋ 새 문제</button>
-      </div>
+
+      {preview && (
+        <div className="prob-preview" onClick={() => setPreview(false)}>
+          <div className="prob-preview-card" onClick={(e) => e.stopPropagation()}>
+            <div className="pp-head">
+              <span>원본 문제</span>
+              <button type="button" onClick={() => setPreview(false)} aria-label="닫기">✕</button>
+            </div>
+            {work.thumb && (/* eslint-disable-next-line @next/next/no-img-element */ <img className="pp-img" src={work.thumb} alt="원본 문제" />)}
+            {work.problem && (
+              <div className="pp-text" dangerouslySetInnerHTML={{ __html: renderMathHtml(work.problem) }} />
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
