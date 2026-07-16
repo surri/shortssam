@@ -1,0 +1,23 @@
+import { NextResponse } from "next/server"
+import { synthesize } from "@/lib/genai"
+import { TTSBody } from "@/lib/validation"
+import { clientIp, rateLimit } from "@/lib/ratelimit"
+
+export const runtime = "nodejs"
+export const maxDuration = 120
+
+export async function POST(req: Request) {
+  if (!rateLimit(clientIp(req), 40)) {
+    return NextResponse.json({ error: "요청이 너무 많아요. 잠시 후 다시 시도하세요." }, { status: 429 })
+  }
+  const parsed = TTSBody.safeParse(await req.json().catch(() => ({})))
+  if (!parsed.success) {
+    return NextResponse.json({ error: "잘못된 요청: " + parsed.error.issues[0].message }, { status: 400 })
+  }
+  try {
+    const wav = await synthesize(parsed.data.text, parsed.data.voice || "Kore", parsed.data.style || undefined)
+    return NextResponse.json({ audio: wav.toString("base64") })
+  } catch (e) {
+    return NextResponse.json({ error: String((e as Error).message ?? e) })
+  }
+}
