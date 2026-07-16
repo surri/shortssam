@@ -3,6 +3,6 @@
 steps:
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
     entrypoint: gcloud
-    args: ["run", "deploy", "shortssam", "--source", ".", "--region", "us-central1", "--quiet"]
+    args: ["run", "deploy", "shortssam", "--source", ".", "--region", "asia-northeast3", "--quiet"]
 options:
   logging: CLOUD_LOGGING_ONLY
