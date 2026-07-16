@@ -1,10 +1,11 @@
-import { GoogleGenAI } from "@google/genai"
+import { GoogleGenAI, Type, type Schema } from "@google/genai"
 import { CATEGORIES, taxonomyHint } from "./curriculum"
 import { PERSONAS, type PersonaId } from "./persona"
 import type { Quiz, Scene } from "./types"
 
 // gemini-3.5-flash(AI Studio 기본)를 선두에 — 미지원 환경이면 체인이 자동 폴백
-const GEN_CHAIN = ["gemini-3.5-flash", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"]
+// (신규 키에선 2.5 계열이 404라 3.1-flash-lite가 실질 폴백, 2.5는 Vertex 경로용)
+const GEN_CHAIN = ["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash", "gemini-2.5-flash-lite"]
 // 신규 키에서 2.5 TTS는 무음 응답 → 3.1 우선, 빈 오디오도 폴백 처리(synthesize 참고)
 const TTS_CHAIN = [process.env.TTS_MODEL || "gemini-3.1-flash-tts-preview", "gemini-2.5-flash-preview-tts", "gemini-2.5-pro-preview-tts"]
 export const EMBED_MODEL = "gemini-embedding-001"
@@ -108,6 +109,46 @@ export type GenResult = {
   total_seconds: number
 }
 
+// constrained decoding 스키마 — 모델이 JSON 문법·필드 형식을 벗어날 수 없게 강제.
+// category는 enum으로 묶어 커리큘럼 밖 분류도 차단. (프롬프트는 내용 지침, 스키마는 형식 보증)
+const SCRIPT_SCHEMA: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    problem: { type: Type.STRING },
+    answer: { type: Type.STRING },
+    category: { type: Type.STRING, enum: [...CATEGORIES, "미분류"] },
+    subtopic: { type: Type.STRING },
+    scenes: {
+      type: Type.ARRAY,
+      minItems: "3",
+      maxItems: "6",
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          narration: { type: Type.STRING },
+          onscreen: { type: Type.STRING },
+          accentWords: { type: Type.ARRAY, items: { type: Type.STRING }, maxItems: "3" },
+          seconds: { type: Type.INTEGER },
+        },
+        required: ["narration", "onscreen", "seconds"],
+      },
+    },
+    total_seconds: { type: Type.INTEGER },
+  },
+  required: ["problem", "answer", "category", "subtopic", "scenes", "total_seconds"],
+}
+
+const QUIZ_SCHEMA: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    problem: { type: Type.STRING },
+    options: { type: Type.ARRAY, items: { type: Type.STRING }, minItems: "5", maxItems: "5" },
+    correctIndex: { type: Type.INTEGER },
+    explanation: { type: Type.STRING },
+  },
+  required: ["problem", "options", "correctIndex", "explanation"],
+}
+
 /** 문제 이미지(data URL) → 풀이·커리큘럼 분류·누적 대본 JSON. 모델 폴백 체인 사용. */
 export async function generateScript(imageDataUrl: string, persona?: PersonaId): Promise<GenResult> {
   const [header, b64] = imageDataUrl.includes(",") ? imageDataUrl.split(",", 2) : ["", imageDataUrl]
@@ -119,7 +160,7 @@ export async function generateScript(imageDataUrl: string, persona?: PersonaId):
       ai().models.generateContent({
         model,
         contents: [{ role: "user", parts: [{ text: prompt }, { inlineData: { mimeType: mime, data: b64 } }] }],
-        config: { responseMimeType: "application/json", temperature: 0.4 },
+        config: { responseMimeType: "application/json", responseSchema: SCRIPT_SCHEMA, temperature: 0.4 },
       }),
     GEN_CHAIN,
   )
@@ -171,7 +212,7 @@ export async function generateQuiz(concept: string, problem?: string): Promise<Q
       ai().models.generateContent({
         model,
         contents: prompt,
-        config: { responseMimeType: "application/json", temperature: 0.7 },
+        config: { responseMimeType: "application/json", responseSchema: QUIZ_SCHEMA, temperature: 0.7 },
       }),
     GEN_CHAIN,
   )
