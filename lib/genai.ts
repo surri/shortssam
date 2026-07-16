@@ -126,11 +126,12 @@ const SCRIPT_SCHEMA: Schema = {
         type: Type.OBJECT,
         properties: {
           narration: { type: Type.STRING },
+          caption: { type: Type.STRING },
           onscreen: { type: Type.STRING },
           accentWords: { type: Type.ARRAY, items: { type: Type.STRING }, maxItems: "3" },
           seconds: { type: Type.INTEGER },
         },
-        required: ["narration", "onscreen", "seconds"],
+        required: ["narration", "caption", "onscreen", "seconds"],
       },
     },
     total_seconds: { type: Type.INTEGER },
