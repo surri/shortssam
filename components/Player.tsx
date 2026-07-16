@@ -14,7 +14,7 @@ export const THEMES = [
 export type ThemeId = (typeof THEMES)[number]["id"]
 
 /**
- * 해설 숏츠 플레이어(레퍼런스 aistudio-ref 룩).
+ * 해설 숏츠 플레이어.
  * - 상단: 스토리식 진행바 + 난이도 뱃지 · 단원 · TTS 이퀄라이저
  * - 중앙: 점선 STEP 보드(현재 수식 + 페르소나 태그라인, 마지막 스텝엔 정답 공개)
  * - 하단: accentWords 컬러 강조 자막 + 재생/이동 컨트롤

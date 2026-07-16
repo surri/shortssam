@@ -42,7 +42,7 @@ select { flex: 1; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .loading .msg { font-size: 14px; color: #b0b0c8; }
 
-/* ── 숏츠 플레이어: 테마별 색은 CSS 변수로 전환 (레퍼런스 aistudio-ref 룩) ── */
+/* ── 숏츠 플레이어: 테마별 색은 CSS 변수로 전환 ── */
 .player {
   /* 기본값 = 시험지(모눈) 테마 */
   --pl-bg: linear-gradient(170deg, #f6f5f0, #ecebe4);
