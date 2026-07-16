@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { synthesize } from "@/lib/genai"
+import { getOrSynthesize } from "@/lib/audio"
 import { TTSBody } from "@/lib/validation"
 import { clientIp, rateLimit } from "@/lib/ratelimit"
 
@@ -15,7 +15,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "잘못된 요청: " + parsed.error.issues[0].message }, { status: 400 })
   }
   try {
-    const wav = await synthesize(parsed.data.text, parsed.data.voice || "Kore", parsed.data.style || undefined)
+    // 캐시 히트면 즉시, 미스면 합성 후 저장 — 기본값 정규화는 lib/audio 한 곳에서만
+    const wav = await getOrSynthesize(parsed.data.text, parsed.data.voice, parsed.data.style)
     return NextResponse.json({ audio: wav.toString("base64") })
   } catch (e) {
     return NextResponse.json({ error: String((e as Error).message ?? e) })

@@ -7,7 +7,7 @@
 export PROJECT=<gcp-project-id>
 export REGION=us-central1
 gcloud config set project "$PROJECT"
-gcloud services enable aiplatform.googleapis.com firestore.googleapis.com run.googleapis.com
+gcloud services enable aiplatform.googleapis.com firestore.googleapis.com run.googleapis.com storage.googleapis.com
 ```
 
 ## 1. Firestore Native + 벡터 인덱스
@@ -19,12 +19,20 @@ gcloud firestore indexes composite create \
 ```
 > 인덱스 READY까지 몇 분. `findNearest`는 인덱스가 있어야 동작.
 
+## 1.5. 오디오(TTS) 캐시 버킷
+```bash
+gcloud storage buckets create "gs://$PROJECT-tts-cache" \
+  --location="$REGION" --uniform-bucket-level-access
+```
+> ⚠️ `AUDIO_BUCKET` 미설정 시 오디오 캐시는 인스턴스 파일시스템(휘발성) — 재시작마다 재합성 비용이 든다. 재청취 비용 절감을 원하면 반드시 설정.
+> (선택) 비용 관리: `gcloud storage buckets update "gs://$PROJECT-tts-cache" --lifecycle-file=<(echo '{"rule":[{"action":{"type":"Delete"},"condition":{"age":90}}]}')`
+
 ## 2. Cloud Run 배포 (web/ 의 Dockerfile 사용)
 ```bash
 cd web
 gcloud run deploy math-shorts \
   --source . --region "$REGION" --allow-unauthenticated \
-  --set-env-vars=GOOGLE_GENAI_USE_VERTEXAI=true,GOOGLE_CLOUD_PROJECT=$PROJECT,GOOGLE_CLOUD_LOCATION=$REGION,STORAGE=firestore
+  --set-env-vars=GOOGLE_GENAI_USE_VERTEXAI=true,GOOGLE_CLOUD_PROJECT=$PROJECT,GOOGLE_CLOUD_LOCATION=$REGION,STORAGE=firestore,AUDIO_BUCKET=$PROJECT-tts-cache
 ```
 - `output: 'standalone'` + `Dockerfile`로 최소 이미지 빌드. HTTPS 자동.
 - Gemini/Firestore는 **Cloud Run 서비스계정**으로 인증(키리스). 권한 부족 시:
@@ -32,6 +40,8 @@ gcloud run deploy math-shorts \
 SA=$(gcloud run services describe math-shorts --region "$REGION" --format='value(spec.template.spec.serviceAccountName)')
 gcloud projects add-iam-policy-binding "$PROJECT" --member="serviceAccount:$SA" --role="roles/aiplatform.user"
 gcloud projects add-iam-policy-binding "$PROJECT" --member="serviceAccount:$SA" --role="roles/datastore.user"
+gcloud storage buckets add-iam-policy-binding "gs://$PROJECT-tts-cache" \
+  --member="serviceAccount:$SA" --role="roles/storage.objectAdmin"
 ```
 > ⚠️ Cloud Run 파일시스템은 휘발성 → 로컬 JSON 저장소는 못 씀. **반드시 `STORAGE=firestore`**.
 

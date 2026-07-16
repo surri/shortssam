@@ -10,6 +10,13 @@ describe("validation", () => {
     expect(GenerateBody.safeParse({}).success).toBe(false)
   })
 
+  it("GenerateBody: voice는 보이스명 형식만 허용(생략 가능)", () => {
+    expect(GenerateBody.safeParse({ image: dataUrl, voice: "Puck" }).success).toBe(true)
+    expect(GenerateBody.safeParse({ image: dataUrl }).success).toBe(true)
+    expect(GenerateBody.safeParse({ image: dataUrl, voice: "Kore!" }).success).toBe(false)
+    expect(GenerateBody.safeParse({ image: dataUrl, voice: "" }).success).toBe(false)
+  })
+
   it("TTSBody: 빈 텍스트/이상한 음성 거부", () => {
     expect(TTSBody.safeParse({ text: "안녕", voice: "Kore" }).success).toBe(true)
     expect(TTSBody.safeParse({ text: "" }).success).toBe(false)

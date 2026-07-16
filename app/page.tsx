@@ -6,7 +6,7 @@ import { Player, type ThemeId } from "@/components/Player"
 import { QuizPanel } from "@/components/Quiz"
 import { UploadPanel } from "@/components/UploadPanel"
 import { blobToDataUrl, readFile, resizeImage } from "@/lib/image"
-import { DEFAULT_PERSONA, PERSONAS, type PersonaId } from "@/lib/persona"
+import { DEFAULT_PERSONA, PERSONAS, isPersonaId, type PersonaId } from "@/lib/persona"
 import { playChime } from "@/lib/sound"
 import type { Quiz, Work } from "@/lib/types"
 
@@ -132,24 +132,32 @@ export default function ShortSsam() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const fetchTTS = async (text: string, v: string): Promise<string | null> => {
+  const fetchTTS = async (text: string, v: string, style: string): Promise<string | null> => {
     try {
       const res = await fetch("/api/tts", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, voice: v, style: PERSONAS[persona].ttsStyle }),
+        body: JSON.stringify({ text, voice: v, style }),
       })
       const data = await res.json()
       return data.error || !data.audio ? null : "data:audio/wav;base64," + data.audio
     } catch { return null }
   }
 
-  const prepareAndPlay = async (w: Work) => {
-    setPhase("loading")
-    const audios: (string | null)[] = []
+  // 장면별 TTS 순차 합성 — work 기준 보이스/스타일이라 서버 캐시 키와 일치(배치 실패 폴백에서도 히트)
+  const synthesizeScenes = async (w: Work): Promise<(string | null)[]> => {
+    const v = w.voice || voice
+    const style = PERSONAS[isPersonaId(w.persona) ? w.persona : persona].ttsStyle
+    const list: (string | null)[] = []
     for (let i = 0; i < w.scenes.length; i++) {
       setLoadingMsg(`숏쌤 나레이션 녹음 중… (${i + 1}/${w.scenes.length})`)
-      audios.push(await fetchTTS(w.scenes[i].narration, voice))
+      list.push(await fetchTTS(w.scenes[i].narration, v, style))
     }
+    return list
+  }
+
+  const prepareAndPlay = async (w: Work, preloaded?: (string | null)[]) => {
+    setPhase("loading")
+    const audios = preloaded ?? (await synthesizeScenes(w))
     playbackRef.current = { work: w, audios }
     setWork(w)
     setSceneIdx(0)
@@ -165,7 +173,7 @@ export default function ShortSsam() {
     try {
       const res = await fetch("/api/generate", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image, thumb, persona }),
+        body: JSON.stringify({ image, thumb, persona, voice }),
       })
       const w = await res.json()
       if (w.error) throw new Error(w.error)
@@ -186,7 +194,7 @@ export default function ShortSsam() {
     try {
       const res = await fetch("/api/generate", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ presetKey: key, persona }),
+        body: JSON.stringify({ presetKey: key, persona, voice }),
       })
       const w = await res.json()
       if (w.error) throw new Error(w.error)
@@ -201,8 +209,16 @@ export default function ShortSsam() {
     setPhase("loading")
     setLoadingMsg("불러오는 중…")
     try {
-      const w = await (await fetch("/api/works/" + id)).json()
+      // work와 완성된 숏츠 오디오를 병렬 로드 — 오디오 실패는 null로 흡수해 장면별 TTS 폴백
+      const [w, a] = await Promise.all([
+        fetch("/api/works/" + id).then((r) => r.json()),
+        fetch(`/api/works/${id}/audio`).then((r) => r.json()).catch(() => null),
+      ])
       if (w.error) throw new Error(w.error)
+      if (a && !a.error && Array.isArray(a.audios)) {
+        await prepareAndPlay(w, a.audios.map((b: string | null) => (b ? "data:audio/wav;base64," + b : null)))
+        return
+      }
       await prepareAndPlay(w)
     } catch (e) {
       setPhase("upload")

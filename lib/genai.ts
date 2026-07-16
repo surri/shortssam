@@ -6,6 +6,9 @@ import type { Quiz, Scene } from "./types"
 // gemini-3.5-flash(AI Studio 기본)를 선두에 — 미지원 환경이면 체인이 자동 폴백
 const GEN_CHAIN = ["gemini-3.5-flash", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"]
 const TTS_CHAIN = [process.env.TTS_MODEL || "gemini-2.5-flash-preview-tts", "gemini-2.5-pro-preview-tts"]
+/** 기본 TTS 보이스·낭독 스타일 — 캐시 키 정규화(lib/audio)와 synthesize 기본값의 단일 소스 */
+export const DEFAULT_TTS_VOICE = "Kore"
+export const DEFAULT_TTS_STYLE = "밝고 친근한 톤으로"
 export const EMBED_MODEL = "gemini-embedding-001"
 export const EMBED_DIM = 1536
 
@@ -119,7 +122,7 @@ export function pcmToWav(pcm: Buffer, rate = 24000): Buffer {
 }
 
 /** 텍스트 → WAV(Buffer) 나레이션. 지정 음성·낭독 스타일로 합성, 폴백 체인 사용. */
-export async function synthesize(text: string, voice = "Kore", style = "밝고 친근한 톤으로"): Promise<Buffer> {
+export async function synthesize(text: string, voice = DEFAULT_TTS_VOICE, style = DEFAULT_TTS_STYLE): Promise<Buffer> {
   const res = await callModels(
     (model) =>
       ai().models.generateContent({

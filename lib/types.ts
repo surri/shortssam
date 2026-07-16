@@ -19,6 +19,8 @@ export type Work = {
   similarity?: number
   /** 생성 당시 선택한 쌤 페르소나 id */
   persona?: string
+  /** 생성 당시 TTS 보이스 — 라이브러리 재생을 원본 음성으로 고정(캐시 히트 보장) */
+  voice?: string
   /** 데모 폴백 등 사용자에게 보여줄 안내(저장 안 됨, 응답 전용) */
   notice?: string
 }
